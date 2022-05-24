@@ -41,12 +41,14 @@ namespace ITools {
     Token_Pipe,
 
     Token_NullTerminator,
+    Token_Whitespace,
   };
 
   struct LexerToken
   {
     ITools::TokenTypes type{};
     std::string string{};
+    const char* start = 0;
   };
 
   class Lexer
@@ -75,17 +77,19 @@ namespace ITools {
     //=========================
 
     // Returns a token containing the string up to the next whitespace character
-    // _expectHex : overrides a,b,c,d,e,f,A,B,C,D,E,F as numeric values at the start of a token
-    ITools::LexerToken NextToken(bool _expectHex = false)
+    // _expectHex (Optional) : overrides [a/A - f/F] as numeric values at the start of a token
+    // _includeWhitespace (Optional) : Will treat whitespace as tokens when true
+    ITools::LexerToken NextToken(bool _expectHex = false, bool _includeWhitespace = false)
     {
-      // Skip whitespace =====
-      while(!CompletedStream() && IsWhiteSpace(*charStream))
+      if (!_includeWhitespace)
       {
-        charStream++;
-      };
+        SkipWhitespace();
+      }
 
       if (CompletedStream())
-        return {Token_End, ""};
+      {
+        return { Token_End, "", charStream};
+      }
 
       // Get token =====
       switch (*charStream)
@@ -136,6 +140,11 @@ namespace ITools {
       case '|': return GetSingleCharToken(Token_Pipe);
 
       case '\0': return GetSingleCharToken(Token_NullTerminator);
+
+      // The whitespace skip prevents this from being called when _includeWhitespace is false
+      case ' ': case '\n': case '\r': case '\t':
+        return GetWhitespaceToken();
+
       default: return GetSingleCharToken(Token_Unknown);
       }
     }
@@ -143,9 +152,14 @@ namespace ITools {
     // Reads the next token and compares it with the given string
     // Returns true and outputs the read token if they match
     // Returns false if they do not match, Does not move forward in the read string
+    // _expected : The string to compare against
+    // _outToken (Optional) : Output for the read expected string if found
     bool ExpectString(std::string _expected, ITools::LexerToken* _outToken = nullptr)
     {
       const char* prevCharHead = charStream;
+
+      if (!IsWhiteSpace(_expected.c_str()[0]))
+        SkipWhitespace();
 
       ITools::LexerToken next = Read(_expected.size());
 
@@ -165,9 +179,14 @@ namespace ITools {
     // Reads the next token and compares its type with the given type
     // Returns true and outputs the token if they match
     // Returns false if they do not match, Does not move forward in the read string
+    // _expected : The type to compare against
+    // _outToken (Optional) : Output for the read string if the types match
     bool ExpectType(ITools::TokenTypes _expected, ITools::LexerToken* _outToken = nullptr)
     {
       const char* prevCharHead = charStream;
+
+      if (_expected != Token_Whitespace)
+        SkipWhitespace();
 
       ITools::LexerToken next = NextToken(_expected == Token_Hex);
 
@@ -184,27 +203,28 @@ namespace ITools {
       return false;
     }
 
-    // Creates a string token of a defined length, ignoring the characters' types
-    // > Includes whitespace
-    // _count : Grabs this many characters as a string regardless of type
-    ITools::LexerToken Read(unsigned long _count)
+    void SkipWhitespace()
     {
-      // Empty read
-      if (_count == 0)
-      {
-        return { Token_String, std::string("") };
-      }
-
-      // Skip whitespace =====
-      // Done to preserve the token start position standard
       while (!CompletedStream() && IsWhiteSpace(*charStream))
       {
         charStream++;
       };
+    }
+
+    // Creates a string token of a defined length, ignoring the characters' types
+    // > Includes whitespace
+    // _count : Grabs this many characters as a string regardless of type
+    ITools::LexerToken Read(unsigned long long _count)
+    {
+      // Empty read
+      if (_count == 0)
+      {
+        return { Token_String, std::string(""), charStream };
+      }
 
       // Read =====
-      const char* stringBeginning = charStream++;
-      unsigned int stringLength = 1;
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
 
       while (stringLength < _count && !CompletedStream())
       {
@@ -212,7 +232,7 @@ namespace ITools {
         stringLength++;
       }
 
-      return { Token_String, std::string(std::string_view(stringBeginning, stringLength)) };
+      return { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
     }
 
     // Creates a string token of all characters up to the first instance of the key character
@@ -221,16 +241,8 @@ namespace ITools {
     // _key : The character to stop at
     ITools::LexerToken ReadTo(char _key)
     {
-      // Skip whitespace =====
-      // Done to preserve the token start position standard
-      while (!CompletedStream() && IsWhiteSpace(*charStream))
-      {
-        charStream++;
-      };
-
-      // Read =====
-      const char* stringBeginning = charStream++;
-      unsigned int stringLength = 1;
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
 
       while (*charStream != _key && !CompletedStream())
       {
@@ -238,7 +250,125 @@ namespace ITools {
         stringLength++;
       }
 
-      return { Token_String, std::string(std::string_view(stringBeginning, stringLength)) };
+      return { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
+    }
+
+    // Creates a string token of all characters including the first instance of the key character
+    // > Includes whitespace
+    // _key : The character to stop at
+    ITools::LexerToken ReadThrough(char _key)
+    {
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
+
+      while (*charStream != _key && !CompletedStream())
+      {
+        charStream++;
+        stringLength++;
+      }
+
+      // Include the key character
+      charStream++;
+      stringLength++;
+
+      return { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
+    }
+
+    // Creates a string token of all characters through the first instance of the key string
+    // > Includes whitespace
+    // _key : The character to stop at
+    /*
+    ITools::LexerToken ReadThrough(const char* _key)
+    {
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
+
+      ITools::LexerToken tmpToken;
+
+      while (!CompletedStream())
+      {
+        ReadTo(_key[0]);
+
+        if (ExpectString(_key, &tmpToken))
+        {
+          stringLength = (tmpToken.start + tmpToken.string.size()) - stringBeginning;
+          break;
+        }
+        else
+        {
+          Read(1);
+        }
+
+        //charStream++;
+        //stringLength++;
+      }
+
+      return { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
+    }
+    */
+
+    // Creates a string token of all characters up to the first instance of any of the key characters
+    // > Does not include the key character in the token string
+    // > Includes whitespace
+    // Returns the index of the found key character, or -1 if none is found
+    // _keys : The characters to stop at
+    // _outToken (Optional) : The output string token
+    unsigned int ReadToFirst(const std::string _keys, ITools::LexerToken* _outToken = nullptr)
+    {
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
+
+      unsigned int keyFound = 0;
+      while (!keyFound && !CompletedStream())
+      {
+        for (int i = 1; i <= _keys.size() && !keyFound; i++)
+        {
+          keyFound = i * (*charStream == _keys.c_str()[i - 1]);
+        }
+
+        charStream++;
+        stringLength++;
+      }
+
+      // Prevent an infinite loop when hitting the end of the string
+      if (keyFound) // != 0
+      {
+        // Undo the key read
+        charStream--;
+        stringLength--;
+      }
+
+      *_outToken = { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
+
+      return keyFound - 1;
+    }
+
+    // Creates a string token of all characters including the first instance of any of the key characters
+    // > Does not include the key character in the token string
+    // > Includes whitespace
+    // Returns the index of the found key character, or -1 if none is found
+    // _keys : The characters to stop at
+    // _outToken (Optional) : The output string token
+    unsigned int ReadThroughFirst(const std::string _keys, ITools::LexerToken* _outToken = nullptr)
+    {
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
+
+      unsigned int keyFound = 0;
+      while (!keyFound && !CompletedStream())
+      {
+        for (int i = 1; i <= _keys.size() && !keyFound; i++)
+        {
+          keyFound = i * (*charStream == _keys.c_str()[i - 1]);
+        }
+
+        charStream++;
+        stringLength++;
+      }
+
+      *_outToken = { Token_String, std::string(stringBeginning, stringLength), stringBeginning };
+
+      return keyFound - 1;
     }
 
     //=========================
@@ -358,13 +488,13 @@ return strtol(_token->string.c_str(), nullptr, 2);
     // Float =====
 
     // Returns a float
-    unsigned int GetFloatFromToken(const ITools::LexerToken* _token)
+    float GetFloatFromToken(const ITools::LexerToken* _token)
     {
       return strtof(_token->string.c_str(), nullptr);
     }
 
     // Returns a double
-    unsigned int GetDoubleFromToken(const ITools::LexerToken* _token)
+    double GetDoubleFromToken(const ITools::LexerToken* _token)
     {
       return strtod(_token->string.c_str(), nullptr);
     }
@@ -388,20 +518,44 @@ return strtol(_token->string.c_str(), nullptr, 2);
     }
 
     // Peek at the next token's string in the stream
-    std::string Peek()
+    // _count (Optional) : The number of characters to look at (including whitespace)
+    // > 0 looks at the next token, skipping whitespace
+    std::string Peek(unsigned long long _count = 0)
     {
-      const char* head = charStream;
-      ITools::LexerToken token = NextToken();
+      if (_count == 0)
+      {
+        const char* head = charStream;
+        ITools::LexerToken token = NextToken();
 
-      charStream = head;
-      return token.string;
+        charStream = head;
+        return token.string;
+      }
+
+      // Skip whitespace =====
+      // Done to preserve the token start position standard
+      while (!CompletedStream() && IsWhiteSpace(*charStream))
+      {
+        charStream++;
+      };
+
+      // Read =====
+      const char* stringBeginning = charStream;
+      unsigned int stringLength = 0;
+
+      while (stringLength < _count && !CompletedStream())
+      {
+        charStream++;
+        stringLength++;
+      }
+
+      return std::string(stringBeginning, stringLength);
     }
 
     // Returns the percentage (0-1) within the string at which the read head is positioned
     float GetProgress()
     {
-      unsigned long length = streamEnd - streamStart;
-      unsigned long head = charStream - streamStart;
+      long long length = streamEnd - streamStart;
+      long long head = charStream - streamStart;
 
       return (float)((double)head / (double)length);
     }
@@ -412,16 +566,20 @@ return strtol(_token->string.c_str(), nullptr, 2);
       return charStream > streamEnd;
     }
 
+    //=========================
+    // Token generation
+    //=========================
   private:
+
     ITools::LexerToken GetSingleCharToken(ITools::TokenTypes _type)
     {
-      return { _type, std::string(std::string_view(charStream++, 1)) };
+      return { _type, std::string(charStream, 1), charStream++ };
     }
 
     ITools::LexerToken GetStringToken()
     {
-      const char* stringBegining = charStream++;
-      unsigned int stringLength = 1;
+      const char* stringBegining = charStream;
+      unsigned int stringLength = 0;
 
       while (IsString(*charStream) && !CompletedStream())
       {
@@ -429,13 +587,13 @@ return strtol(_token->string.c_str(), nullptr, 2);
         stringLength++;
       }
 
-      return { Token_String, std::string(std::string_view(stringBegining, stringLength)) };
+      return { Token_String, std::string(stringBegining, stringLength), stringBegining };
     }
 
     ITools::LexerToken GetNumberToken(bool _isHex = false)
     {
-      const char* stringBegining = charStream++;
-      unsigned int stringLength = 1;
+      const char* stringBegining = charStream;
+      unsigned int stringLength = 0;
 
       int offset = *stringBegining == '-';
 
@@ -475,14 +633,89 @@ return strtol(_token->string.c_str(), nullptr, 2);
             break;
           }
 
-          type = Token_Decimal;
+          type = Token_Float;
         }
 
         charStream++;
         stringLength++;
       }
 
-      return { type, std::string(std::string_view(stringBegining, stringLength)) };
+      return { type, std::string(stringBegining, stringLength), stringBegining };
+    }
+
+    ITools::LexerToken GetWhitespaceToken()
+    {
+      const char* stringBeginning = charStream++;
+      unsigned int stringLength = 1;
+
+      while (!CompletedStream() && IsWhiteSpace(*charStream))
+      {
+        charStream++;
+        stringLength++;
+      }
+
+      return { Token_Whitespace, std::string(stringBeginning, stringLength), stringBeginning };
+    }
+
+    ITools::TokenTypes GetCharacterType(char _char, bool _expectHex = false)
+    {
+      if (CompletedStream())
+        return Token_End;
+
+      // Get token =====
+      switch (_char)
+      {
+      case '-':
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9':
+        return Token_Decimal;
+      case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+      case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+      {
+        if (_expectHex)
+        {
+          return Token_Hex;
+        }
+      }
+      case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+      case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+      case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+      case 'Y': case 'Z':
+      case '_':
+      case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
+      case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+      case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+      case 'y': case 'z':
+        return Token_String;
+      case ',': return Token_Comma;
+      case '[': return Token_LeftBracket;
+      case ']': return Token_RightBracket;
+      case '{': return Token_LeftBrace;
+      case '}': return Token_RightBrace;
+      case '(': return Token_LeftParen;
+      case ')': return Token_RightParen;
+      case '/': return Token_FwdSlash;
+      case '<': return Token_LessThan;
+      case '>': return Token_GreaterThan;
+      case '=': return Token_Equal;
+      case '+': return Token_Plus;
+      case '*': return Token_Star;
+      case '\\': return Token_BackSlash;
+      case '#': return Token_Pound;
+      case '.': return Token_Period;
+      case ';': return Token_SemiColon;
+      case ':': return Token_Colon;
+      case '\'': return Token_Apostrophe;
+      case '"': return Token_Quote;
+      case '|': return Token_Pipe;
+
+      case '\0': return Token_NullTerminator;
+
+      case ' ': case '\n': case '\r': case '\t':
+        return Token_Whitespace;
+
+      default: return Token_Unknown;
+      }
     }
 
     bool IsWhiteSpace(char _char)
