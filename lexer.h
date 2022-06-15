@@ -62,15 +62,21 @@ namespace ITools {
 
   public:
     Lexer(const char* _str, size_t _size, bool _useHex = false) : charStream(_str),
-      streamStart(_str),
-      streamEnd(_str + _size - 1),
-      usesHex(_useHex)
+                                                                  streamStart(_str),
+                                                                  streamEnd(streamStart + _size - 1),
+                                                                  usesHex(_useHex)
     {}
 
     Lexer(const std::vector<char>& _str, bool _useHex = false) : charStream(_str.data()),
-      streamStart(_str.data()),
-      streamEnd(charStream + _str.size() - 1),
-      usesHex(_useHex)
+                                                                 streamStart(_str.data()),
+                                                                 streamEnd(streamStart + _str.size() - 1),
+                                                                 usesHex(_useHex)
+    {}
+
+    Lexer(const std::string& _str, bool _useHex = false) : charStream(_str.data()),
+                                                           streamStart(_str.data()),
+                                                           streamEnd(streamStart + _str.size() - 1),
+                                                           usesHex(_useHex)
     {}
 
     //=========================
