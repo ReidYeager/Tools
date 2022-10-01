@@ -1,12 +1,12 @@
 
-#ifndef ITOOLS_LEXER_H_
-#define ITOOLS_LEXER_H_
+#ifndef YTOOLS_LEXER_H_
+#define YTOOLS_LEXER_H_
 
 #include <string>
 #include <string_view> // Used to create sub-strings from the input string
 #include <vector>
 
-namespace ITools {
+namespace YTools {
   enum TokenTypes
   {
     Token_End = -1, // End of file
@@ -46,7 +46,7 @@ namespace ITools {
 
   struct LexerToken
   {
-    ITools::TokenTypes type{};
+    YTools::TokenTypes type{};
     std::string string{};
     const char* start = 0;
     const char* end = 0;
@@ -86,7 +86,7 @@ namespace ITools {
     // Returns a token containing the string up to the next whitespace character
     // _expectHex (Optional) : overrides [a/A - f/F] as numeric values at the start of a token
     // _includeWhitespace (Optional) : Will treat whitespace as tokens when true
-    ITools::LexerToken NextToken(bool _expectHex = false, bool _includeWhitespace = false)
+    YTools::LexerToken NextToken(bool _expectHex = false, bool _includeWhitespace = false)
     {
       if (!_includeWhitespace)
       {
@@ -161,14 +161,14 @@ namespace ITools {
     // Returns false if they do not match, Does not move forward in the read string
     // _expected : The string to compare against
     // _outToken (Optional) : Output for the read expected string if found
-    bool ExpectString(std::string _expected, ITools::LexerToken* _outToken = nullptr)
+    bool ExpectString(std::string _expected, YTools::LexerToken* _outToken = nullptr)
     {
       const char* prevCharHead = charStream;
 
       if (!IsWhiteSpace(_expected.c_str()[0]))
         SkipWhitespace();
 
-      ITools::LexerToken next = Read(_expected.size());
+      YTools::LexerToken next = Read(_expected.size());
 
       if (next.string.compare(_expected) == 0)
       {
@@ -188,14 +188,14 @@ namespace ITools {
     // Returns false if they do not match, Does not move forward in the read string
     // _expected : The type to compare against
     // _outToken (Optional) : Output for the read string if the types match
-    bool ExpectType(ITools::TokenTypes _expected, ITools::LexerToken* _outToken = nullptr)
+    bool ExpectType(YTools::TokenTypes _expected, YTools::LexerToken* _outToken = nullptr)
     {
       const char* prevCharHead = charStream;
 
       if (_expected != Token_Whitespace)
         SkipWhitespace();
 
-      ITools::LexerToken next = NextToken(_expected == Token_Hex);
+      YTools::LexerToken next = NextToken(_expected == Token_Hex);
 
       if (next.type == _expected)
       {
@@ -221,7 +221,7 @@ namespace ITools {
     // Creates a string token of a defined length, ignoring the characters' types
     // > Includes whitespace
     // _count : Grabs this many characters as a string regardless of type
-    ITools::LexerToken Read(unsigned long long _count)
+    YTools::LexerToken Read(unsigned long long _count)
     {
       // Empty read
       if (_count == 0)
@@ -249,7 +249,7 @@ namespace ITools {
     // > Does not include the key character in the token string
     // > Includes whitespace
     // _key : The character to stop at
-    ITools::LexerToken ReadTo(char _key)
+    YTools::LexerToken ReadTo(char _key)
     {
       const char* stringBeginning = charStream;
       unsigned int stringLength = 0;
@@ -269,7 +269,7 @@ namespace ITools {
     // Creates a string token of all characters including the first instance of the key character
     // > Includes whitespace
     // _key : The character to stop at
-    ITools::LexerToken ReadThrough(char _key)
+    YTools::LexerToken ReadThrough(char _key)
     {
       const char* stringBeginning = charStream;
       unsigned int stringLength = 0;
@@ -294,12 +294,12 @@ namespace ITools {
     // > Includes whitespace
     // _key : The character to stop at
     /*
-    ITools::LexerToken ReadThrough(const char* _key)
+    YTools::LexerToken ReadThrough(const char* _key)
     {
       const char* stringBeginning = charStream;
       unsigned int stringLength = 0;
 
-      ITools::LexerToken tmpToken;
+      YTools::LexerToken tmpToken;
 
       while (!CompletedStream())
       {
@@ -329,7 +329,7 @@ namespace ITools {
     // Returns the index of the found key character, or -1 if none is found
     // _keys : The characters to stop at
     // _outToken (Optional) : The output string token
-    unsigned int ReadToFirst(const std::string _keys, ITools::LexerToken* _outToken = nullptr)
+    unsigned int ReadToFirst(const std::string _keys, YTools::LexerToken* _outToken = nullptr)
     {
       const char* stringBeginning = charStream;
       unsigned int stringLength = 0;
@@ -368,7 +368,7 @@ namespace ITools {
     // Returns the index of the found key character, or -1 if none is found
     // _keys : The characters to stop at
     // _outToken (Optional) : The output string token
-    unsigned int ReadThroughFirst(const std::string _keys, ITools::LexerToken* _outToken = nullptr)
+    unsigned int ReadThroughFirst(const std::string _keys, YTools::LexerToken* _outToken = nullptr)
     {
       const char* stringBeginning = charStream;
       unsigned int stringLength = 0;
@@ -400,27 +400,27 @@ namespace ITools {
     // Decimal =====
 
     // Returns an unsigned int
-    unsigned int GetUIntFromToken(const ITools::LexerToken* _token)
+    unsigned int GetUIntFromToken(const YTools::LexerToken* _token)
     {
       int offset = _token->string[0] == '-'; // Ignores negative sign if present
       return (unsigned int)strtoul(_token->string.c_str() + offset, nullptr, 10);
     }
 
     // Returns a signed int
-    int GetIntFromToken(const ITools::LexerToken* _token)
+    int GetIntFromToken(const YTools::LexerToken* _token)
     {
       return (int)strtol(_token->string.c_str(), nullptr, 10);
     }
 
     // Returns an unsigned long
-    unsigned long GetULongFromToken(const ITools::LexerToken* _token)
+    unsigned long GetULongFromToken(const YTools::LexerToken* _token)
     {
       int offset = _token->string[0] == '-'; // Ignores negative sign if present
       return strtoul(_token->string.c_str() + offset, nullptr, 10);
     }
 
     // Returns a signed long
-    long GetLongFromToken(const ITools::LexerToken* _token)
+    long GetLongFromToken(const YTools::LexerToken* _token)
     {
       return strtol(_token->string.c_str(), nullptr, 10);
     }
@@ -428,7 +428,7 @@ namespace ITools {
     // Hex =====
 
     // Returns an unsigned int
-    unsigned int GetUIntFromHexToken(const ITools::LexerToken* _token)
+    unsigned int GetUIntFromHexToken(const YTools::LexerToken* _token)
     {
       const std::string& str = _token->string;
 
@@ -441,7 +441,7 @@ namespace ITools {
     }
 
     // Returns a signed int
-    int GetIntFromHexToken(const ITools::LexerToken* _token)
+    int GetIntFromHexToken(const YTools::LexerToken* _token)
     {
       const std::string& str = _token->string;
 
@@ -454,7 +454,7 @@ namespace ITools {
     }
 
     // Returns an unsigned long
-    unsigned long GetULongFromHexToken(const ITools::LexerToken* _token)
+    unsigned long GetULongFromHexToken(const YTools::LexerToken* _token)
     {
       const std::string& str = _token->string;
 
@@ -467,7 +467,7 @@ namespace ITools {
     }
 
     // Returns a signed long
-    long GetLongFromHexToken(const ITools::LexerToken* _token)
+    long GetLongFromHexToken(const YTools::LexerToken* _token)
     {
       const std::string& str = _token->string;
 
@@ -482,27 +482,27 @@ namespace ITools {
     // Binary =====
 
     // Returns an unsigned int
-    unsigned int GetUIntFromBinaryToken(const ITools::LexerToken* _token)
+    unsigned int GetUIntFromBinaryToken(const YTools::LexerToken* _token)
     {
       int offset = _token->string[0] == '-'; // Ignores negative sign if present
       return (unsigned int)strtoul(_token->string.c_str() + offset, nullptr, 2);
     }
 
     // Returns a signed int
-    int GetIntFromBinaryToken(const ITools::LexerToken* _token)
+    int GetIntFromBinaryToken(const YTools::LexerToken* _token)
     {
       return (int)strtol(_token->string.c_str(), nullptr, 2);
     }
 
     // Returns an unsigned long
-    unsigned long GetULongFromBinaryToken(const ITools::LexerToken* _token)
+    unsigned long GetULongFromBinaryToken(const YTools::LexerToken* _token)
     {
       int offset = _token->string[0] == '-'; // Ignores negative sign if present
       return strtoul(_token->string.c_str() + offset, nullptr, 2);
     }
 
     // Returns a signed long
-    long GetLongFromBinaryToken(const ITools::LexerToken* _token)
+    long GetLongFromBinaryToken(const YTools::LexerToken* _token)
     {
       return strtol(_token->string.c_str(), nullptr, 2);
     }
@@ -510,13 +510,13 @@ namespace ITools {
     // Float =====
 
     // Returns a float
-    float GetFloatFromToken(const ITools::LexerToken* _token)
+    float GetFloatFromToken(const YTools::LexerToken* _token)
     {
       return strtof(_token->string.c_str(), nullptr);
     }
 
     // Returns a double
-    double GetDoubleFromToken(const ITools::LexerToken* _token)
+    double GetDoubleFromToken(const YTools::LexerToken* _token)
     {
       return strtod(_token->string.c_str(), nullptr);
     }
@@ -527,7 +527,7 @@ namespace ITools {
 
     // Compares the token string with the array of strings
     // Returns [0, _count) as the index of the matching string, _count if no match was found
-    unsigned int GetTokenSetIndex(const ITools::LexerToken& _token, const char* const* _stringArray, unsigned int _count)
+    unsigned int GetTokenSetIndex(const YTools::LexerToken& _token, const char* const* _stringArray, unsigned int _count)
     {
       unsigned int index;
       for (index = 0; index < _count; index++)
@@ -547,7 +547,7 @@ namespace ITools {
       if (_count == 0)
       {
         const char* head = charStream;
-        ITools::LexerToken token = NextToken();
+        YTools::LexerToken token = NextToken();
 
         charStream = head;
         return token.string;
@@ -593,12 +593,12 @@ namespace ITools {
     //=========================
   private:
 
-    ITools::LexerToken GetSingleCharToken(ITools::TokenTypes _type)
+    YTools::LexerToken GetSingleCharToken(YTools::TokenTypes _type)
     {
       return { _type, std::string(charStream, 1), charStream++ };
     }
 
-    ITools::LexerToken GetStringToken()
+    YTools::LexerToken GetStringToken()
     {
       const char* stringBegining = charStream;
       unsigned int stringLength = 0;
@@ -615,7 +615,7 @@ namespace ITools {
                stringBegining + stringLength - 1 };
     }
 
-    ITools::LexerToken GetNumberToken(bool _isHex = false)
+    YTools::LexerToken GetNumberToken(bool _isHex = false)
     {
       const char* stringBegining = charStream;
       unsigned int stringLength = 0;
@@ -631,16 +631,16 @@ namespace ITools {
 
       // Hex test =====
 
-      ITools::TokenTypes type = ITools::Token_Decimal;
+      YTools::TokenTypes type = YTools::Token_Decimal;
 
       // If hex is guaranteed or the '0x' tag is found
       if (_isHex)
       {
-        type = ITools::Token_Hex;
+        type = YTools::Token_Hex;
       }
       else if (*(stringBegining + offset) == '0' && *(stringBegining + offset + 1) == 'x')
       {
-        type = ITools::Token_Hex;
+        type = YTools::Token_Hex;
 
         // Skip the '0x' tag
         charStream = (stringBegining + offset + 2);
@@ -653,7 +653,7 @@ namespace ITools {
       {
         if (*charStream == '.')
         {
-          if (type == ITools::Token_Hex)
+          if (type == YTools::Token_Hex)
           {
             break;
           }
@@ -668,7 +668,7 @@ namespace ITools {
       return { type, std::string(stringBegining, stringLength), stringBegining };
     }
 
-    ITools::LexerToken GetWhitespaceToken()
+    YTools::LexerToken GetWhitespaceToken()
     {
       const char* stringBeginning = charStream++;
       unsigned int stringLength = 1;
@@ -685,7 +685,7 @@ namespace ITools {
                stringBeginning + stringLength - 1 };
     }
 
-    ITools::TokenTypes GetCharacterType(char _char, bool _expectHex = false)
+    YTools::TokenTypes GetCharacterType(char _char, bool _expectHex = false)
     {
       if (CompletedStream())
         return Token_End;
@@ -760,9 +760,9 @@ namespace ITools {
       }
     }
 
-    bool IsNumber(char _char, ITools::TokenTypes _type = ITools::Token_Decimal)
+    bool IsNumber(char _char, YTools::TokenTypes _type = YTools::Token_Decimal)
     {
-      if (_type == ITools::Token_Hex)
+      if (_type == YTools::Token_Hex)
       {
         switch (_char)
         {
@@ -818,6 +818,6 @@ namespace ITools {
 
 
   }; // Lexer
-} // namespace ITools
+} // namespace YTools
 
-#endif // !define ITOOLS_LEXER_H_
+#endif // !define YTOOLS_LEXER_H_
